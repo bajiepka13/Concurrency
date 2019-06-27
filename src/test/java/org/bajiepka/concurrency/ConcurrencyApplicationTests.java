@@ -6,10 +6,16 @@ import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.junit.Assert.*;
 
@@ -123,6 +129,127 @@ public class ConcurrencyApplicationTests {
 
         assertEquals(consumer.numberOfConsumedElements.get(), numberOfElementsToProduce);
     }
+
+    private static Integer parse(String s) {
+        return Integer.parseInt(s);
+    }
+
+    @Test
+    public void test_06_concurrency_freestyle() {
+
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        executorService.submit(() -> System.out.println("I'm a runnable task."));
+
+        Future<Integer> future = executorService.submit(() -> {
+            System.out.println("I'm a callable task!");
+            return 2;
+        });
+
+        try {
+            System.out.println(future.get());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void test_07_concurrency_freestyle() {
+
+        ExecutorService executor = Executors.newCachedThreadPool();
+
+        List<Callable<Integer>> callables = Arrays.asList(
+                () -> 1,
+                () -> 2,
+                () -> 3);
+
+        try {
+
+            List<Future<Integer>> futures = executor.invokeAll(callables);
+
+            int sum = futures.stream().map(f -> {
+                try {
+                    return f.get();
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+            }).mapToInt(Integer::intValue).sum();
+
+            System.out.println(sum);
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            executor.shutdown();
+        }
+
+    }
+
+    @Test
+    public void test_08_reference_method_test() {
+
+        Converter<Integer, String> toString = new Converter<Integer, String>() {
+
+            @Override
+            public String convert(Integer from) {
+                return null;
+            }
+        };
+
+//        Converter<String, Integer> converter = Integer::valueOf;
+        Converter<String, Integer> converter = from -> Integer.valueOf(from) + 100;
+        assertEquals(Integer.valueOf(200), converter.convert("100"));
+
+        Something something = new Something();
+
+        Converter<String, String> converter2 = something::startsWith;
+        assertEquals("J", converter2.convert("Java"));
+
+
+    }
+
+    @Test
+    public void test_09_reference_method_test() {
+
+        /*
+         *   Примеры стримов, использующих Stream api и Method reference
+         */
+        Stream.of(1, 2, 3, 4, 5, 6).filter(s -> s % 2 == 0).forEach(System.out::println);
+        IntStream.range(0, 100).filter(s -> s % 2 == 0).limit(20).forEach(System.out::println);
+
+        Function<String, Integer> toInteger1 = string -> parse(string);
+        Integer value1 = toInteger1.apply("5");
+
+        Function<String, Integer> toInteger2 = ConcurrencyApplicationTests::parse;
+        Integer value2 = toInteger2.apply("6");
+
+        int[][] arr = {{1, 2}, {3, 4}, {5, 6}};
+        int[] newArr = Arrays.stream(arr).flatMapToInt(i -> Arrays.stream(i)).toArray();
+
+        Optional<Integer> reduced = Stream.of(1, 2, 3, 4, 5, 6, 7, 8, 9)
+                .collect(Collectors.toList())
+                .stream()
+                .reduce((left, right) -> left * right);
+
+        reduced.ifPresent(System.out::println);
+
+    }
+
+    @FunctionalInterface
+    interface Converter<F, T> {
+        T convert(F from);
+    }
+
+    public interface Formula {
+
+        int calculate(int a, int b);
+
+        default double sqrt(int a) {
+            return Math.sqrt(a);
+        }
+
+        ;
+
+    }
+
     /*
      * TEST 01 -03 classes
      * */
@@ -302,6 +429,12 @@ public class ConcurrencyApplicationTests {
                     e.printStackTrace();
                 }
             }
+        }
+    }
+
+    class Something {
+        String startsWith(String s) {
+            return String.valueOf(s.charAt(0));
         }
     }
 
