@@ -13,7 +13,7 @@ public class InterfaceStaticAndDefaultMethodsTests {
     @Before
     public void before() {
         System.out.println("Инициализируем фабрику гомосапиенсов!");
-        factory = HomoSapience::new;
+        factory = HomoSapienceFactory::new;
 
         System.out.println("------------------------------------!");
     }
@@ -21,7 +21,7 @@ public class InterfaceStaticAndDefaultMethodsTests {
     @Test
     public void test_01_Default_method() {
 
-        HomoSapience h = factory.build("Java programmer", 25);
+        HomoSapienceFactory h = factory.build("Java programmer", 25);
         System.out.println(h);
         h.walk();
         Walkable.walking();
@@ -41,13 +41,13 @@ public class InterfaceStaticAndDefaultMethodsTests {
 
     @FunctionalInterface
     interface SapienceFactory {
-        HomoSapience build(String name, Integer age);
+        HomoSapienceFactory build(String name, Integer age);
     }
 
     @Setter
     @AllArgsConstructor
     @ToString
-    class HomoSapience implements Human, Walkable {
+    class HomoSapienceFactory implements Human, Walkable {
         String name;
         Integer age;
     }

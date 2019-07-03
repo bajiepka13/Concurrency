@@ -68,7 +68,7 @@ public class ReferenceMethodApplicationTests {
          *   Цепочка обращений (Function composition),
          *   реализованная на функциональном интерфейсе
          *   с помощью Method reference (ссылка на метод)
-   );      */
+         */
         Function<String, String> trim = String::trim;
         String result = trim
                 .andThen(String::toLowerCase)
