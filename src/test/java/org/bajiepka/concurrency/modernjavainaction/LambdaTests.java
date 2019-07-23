@@ -294,7 +294,6 @@ public class LambdaTests {
     }
 
     @Getter
-    @ToString
     class Plum extends Fruit {
 
         private String sort;

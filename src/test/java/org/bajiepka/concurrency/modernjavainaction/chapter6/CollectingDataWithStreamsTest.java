@@ -1,6 +1,9 @@
 package org.bajiepka.concurrency.modernjavainaction.chapter6;
 
 import lombok.Getter;
+import org.bajiepka.concurrency.modernjavainaction.model.CaloricLevel;
+import org.bajiepka.concurrency.modernjavainaction.model.Dish;
+import org.bajiepka.concurrency.modernjavainaction.model.DishType;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -22,10 +25,10 @@ public class CollectingDataWithStreamsTest {
     @Before
     public void setUp() {
         dishes = Arrays.asList(
-                Dish.newBuilder().setName("Анчоусы с огурцами").setWeight(100).setType(DishType.MEAT).build(),
-                Dish.newBuilder().setName("Сыр пармезан с квасом").setWeight(300).setType(DishType.VEGAN).build(),
-                Dish.newBuilder().setName("Селёдка в жирном кефире").setWeight(125).setType(DishType.FISH).build(),
-                Dish.newBuilder().setName("Картошка с пеплом").setWeight(350).setType(DishType.VEGAN).build());
+                new Dish("Анчоусы с огурцами", 100, DishType.MEAT),
+                new Dish("Сыр пармезан с квасом", 300, DishType.VEGAN),
+                new Dish("Селёдка в жирном кефире", 125, DishType.FISH),
+                new Dish("Картошка с пеплом", 350, DishType.VEGAN));
     }
 
     @Test
@@ -66,68 +69,7 @@ public class CollectingDataWithStreamsTest {
         System.out.println("\n" + o.toString());
     }
 
-    enum DishType {
-        MEAT, FISH, VEGETABLE, VEGAN, OTHER
-    }
-
-    enum CaloricLevel {
-        DIET, NORMAL, FAT
-    }
-
     interface Soldable {
-    }
-
-    @Getter
-    static class Dish implements Soldable {
-
-        String name;
-        Integer weight;
-        DishType type;
-
-        private Dish() {
-        }
-
-        private Dish(String name, Integer weight, DishType type) {
-            this.name = name;
-            this.weight = weight;
-            this.type = type;
-        }
-
-        static Dish.DishBuilder newBuilder() {
-            return new Dish().new DishBuilder();
-        }
-
-        /**
-         * простая ерализация Builder с помощью внутреннего класса
-         */
-        class DishBuilder {
-
-            private String name;
-            private Integer weight;
-            private DishType type;
-
-            private DishBuilder() {
-            }
-
-            public Dish build() {
-                return new Dish(this.name, this.weight, this.type);
-            }
-
-            public Dish.DishBuilder setName(String name) {
-                this.name = name;
-                return this;
-            }
-
-            public Dish.DishBuilder setWeight(Integer weight) {
-                this.weight = weight;
-                return this;
-            }
-
-            public Dish.DishBuilder setType(DishType type) {
-                this.type = type;
-                return this;
-            }
-        }
     }
 
     class MyIntSupplier implements IntSupplier {
