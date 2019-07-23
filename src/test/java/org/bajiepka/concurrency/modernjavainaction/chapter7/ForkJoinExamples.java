@@ -11,6 +11,8 @@ public class ForkJoinExamples {
     @Test
     public void test_01_java7_forkjoin() {
 
+        System.out.println(Runtime.getRuntime().availableProcessors());
+
         long[] numbers = LongStream.rangeClosed(1, 100).toArray();
         System.out.println(new ForkJoinPool().invoke(new ForkJoinSumCalculator(numbers)));
     }
