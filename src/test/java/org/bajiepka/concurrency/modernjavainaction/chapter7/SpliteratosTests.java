@@ -6,6 +6,7 @@ import java.util.Spliterator;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public class SpliteratosTests {
 
@@ -20,13 +21,21 @@ public class SpliteratosTests {
                 countWordsIteravely(SENTENCE)));
 
         Stream<Character> charStream = IntStream.range(0, SENTENCE.length()).mapToObj(SENTENCE::charAt);
-        WordCounter wordCounter = charStream.reduce(
+        System.out.println("\nИспользуя custom collector мы подсчитали количество слов в предложении: " + countWords(charStream));
+
+        Spliterator<Character> spliterator = new WordCounterSpliterator(SENTENCE);
+        Stream<Character> stream = StreamSupport.stream(spliterator, true);
+        System.out.println("\nИспользуем Spliterator: " + countWords(stream) + " слов найдено.");
+
+    }
+
+    public int countWords(Stream<Character> stream) {
+
+        WordCounter wordCounter = stream.reduce(
                 new WordCounter(0, true),
                 WordCounter::accumulate,
                 WordCounter::combine);
-
-        System.out.println("Используя custom collector мы подсчитали количество слов в предложении: " + wordCounter.getCounter());
-
+        return wordCounter.getCounter();
     }
 
     public int countWordsIteravely(String line) {
@@ -65,16 +74,26 @@ public class SpliteratosTests {
             if (currentSize < 10) {
                 return null;
             }
+            for (int splitPos = currentSize / 2 + currentChar; splitPos < string.length(); splitPos++) {
+                if (Character.isWhitespace(string.charAt(splitPos))) {
+                    Spliterator<Character> spliterator =
+                            new WordCounterSpliterator(string.substring(currentChar,
+                                    splitPos));
+                    currentChar = splitPos;
+                    return spliterator;
+                }
+            }
+            return null;
         }
 
         @Override
         public long estimateSize() {
-            return 0;
+            return string.length() - currentChar;
         }
 
         @Override
         public int characteristics() {
-            return 0;
+            return ORDERED + SIZED + SUBSIZED + NONNULL + IMMUTABLE;
         }
     }
 
@@ -89,13 +108,11 @@ public class SpliteratosTests {
         }
 
         public WordCounter accumulate(Character c) {
-
             if (Character.isWhitespace(c)) {
                 return lastSpace ? this : new WordCounter(counter, true);
             } else {
                 return lastSpace ? new WordCounter(counter + 1, false) : this;
             }
-
         }
 
         public WordCounter combine(WordCounter wordCounter) {
