@@ -114,5 +114,4 @@ public class CollectionApiEnhancements {
         System.out.println(all);
 
     }
-
 }
