@@ -55,6 +55,10 @@ public class DslExpressions {
 
     }
 
+    public void test_03_dsl_using_functions() {
+
+    }
+
     //region Simple DSL
 
     enum Brand {
