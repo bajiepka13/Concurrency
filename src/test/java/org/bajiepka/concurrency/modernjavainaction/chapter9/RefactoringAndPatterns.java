@@ -162,7 +162,7 @@ public class RefactoringAndPatterns {
 
     //endregion
 
-    //region  Шаблон "Обозреватель" Observer pattern ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //region  Шаблон "Обозреватель" MyObserver pattern ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     abstract class OnlineBanking {
 

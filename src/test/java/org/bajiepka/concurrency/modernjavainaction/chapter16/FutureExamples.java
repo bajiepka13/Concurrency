@@ -1,11 +1,15 @@
 package org.bajiepka.concurrency.modernjavainaction.chapter16;
 
+import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
@@ -14,6 +18,9 @@ import static java.util.stream.Collectors.toList;
 import static org.junit.Assert.assertEquals;
 
 public class FutureExamples {
+
+    private final List<Shop> shops = new ArrayList<>();
+    private final String product = "Макароны по-флотски";
 
     /**
      * Simulate delay helper method
@@ -27,6 +34,35 @@ public class FutureExamples {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Simulate Random delay helper method
+     */
+    public static void randomDelay() {
+
+        Random random = new Random();
+        int delay = 500 + random.nextInt(2000);
+        try {
+            sleep(delay);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Before
+    public void setUp() {
+
+        shops.addAll(Arrays.asList(
+                new Shop("Metro Cash & Carry"),
+                new Shop("Пятёрочка"),
+                new Shop("ПУД"),
+                new Shop("iStore"),
+                new Shop("Эльдорадо"),
+                new Shop("Яблоко"),
+                new Shop("Меганом"),
+                new Shop("Novus"),
+                new Shop("МТС")));
     }
 
     @Test
@@ -98,20 +134,6 @@ public class FutureExamples {
 
         System.out.println(Runtime.getRuntime().availableProcessors());
 
-        String product = "Макароны по-флотски";
-
-        List<Shop> shops = Arrays.asList(
-                new Shop("Metro Cash & Carry"),
-                new Shop("Пятёрочка"),
-                new Shop("ПУД"),
-                new Shop("iStore"),
-                new Shop("Эльдорадо"),
-                new Shop("Яблоко"),
-                new Shop("Меганом"),
-                new Shop("Novus"),
-                new Shop("МТС")
-        );
-
         Executor executor = Executors.newFixedThreadPool(Math.min(shops.size(), 100), (Runnable r) -> {
             Thread t = new Thread(r);
             t.setDaemon(true);
@@ -141,6 +163,130 @@ public class FutureExamples {
 
     }
 
+    @Test
+    public void test_04_implementing_a_discount_service() {
+
+        findPricesWithDiscountAsync(shops, product).stream().forEach(System.out::println);
+
+    }
+
+    @Test
+    public void test_05_implementing_a_discount_service_async() {
+
+        Executor executor = Executors.newFixedThreadPool(Math.min(shops.size(), 100), (Runnable r) -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            return t;
+        });
+
+        findPricesAsyncTop(shops, product, executor).stream().forEach(System.out::println);
+
+    }
+
+    @Test
+    public void test_06_withTimeout_exceptions() {
+
+        Shop pyaterochka = shops.get(1);
+        Shop pud = shops.get(2);
+
+        Future<Double> futurePriceInUSD =
+                CompletableFuture.supplyAsync(() -> pyaterochka.getPrice(product)).thenCombine(
+                        CompletableFuture.supplyAsync(() -> pud.getPrice(product)).completeOnTimeout(1.0, 3, SECONDS),
+                        (p1, p2) -> p1 + p2)
+                        .orTimeout(10, SECONDS);
+        try {
+            System.out.println(futurePriceInUSD.get());
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void test_07_asSoonAsPossible() {
+        CompletableFuture[] futures = findPricesStream(product)
+                .map(f -> f.thenAccept(System.out::println))
+                .toArray(size -> new CompletableFuture[size]);
+
+        CompletableFuture.allOf(futures).join();
+    }
+
+    @Test
+    public void test_08_differentTimingTes() {
+        long start = System.nanoTime();
+        CompletableFuture[] futures = findPricesStream("myPhone27S")
+                .map(f -> f.thenAccept(
+                        s -> System.out.println(s + " (done in " +
+                                ((System.nanoTime() - start) / 1_000_000) + " msecs)")))
+                .toArray(size -> new CompletableFuture[size]);
+        CompletableFuture.allOf(futures).join();
+        System.out.println("All shops have now responded in "
+                + ((System.nanoTime() - start) / 1_000_000) + " msecs");
+    }
+
+//region ~~~ 04 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    public Stream<CompletableFuture<String>> findPricesStream(String product) {
+
+        Executor executor = Executors.newFixedThreadPool(Math.min(shops.size(), 100), (Runnable r) -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            return t;
+        });
+
+        return shops.stream()
+                .map(shop -> CompletableFuture.supplyAsync(() -> shop.getPriceWithDiscount(product), executor))
+                .map(future -> future.thenApply(Quote::parse))
+                .map(future -> future.thenCompose(quote ->
+                        CompletableFuture.supplyAsync(() -> Discount.applyDiscount(quote), executor)));
+    }
+
+    public List<String> findPricesAsyncTop(List<Shop> shops, String product, Executor executor) {
+        List<CompletableFuture<String>> priceFutures = shops.stream()
+                .map(shop -> CompletableFuture.supplyAsync(() -> shop.getPriceWithDiscount(product), executor))
+                .map(future -> future.thenApply(Quote::parse))
+                .map(future -> future.thenCompose(q -> CompletableFuture.supplyAsync(() -> Discount.applyDiscount(q), executor)))
+                .collect(Collectors.toList());
+
+        return priceFutures.stream().map(CompletableFuture::join).collect(toList());
+    }
+
+    public List<String> findPricesWithDiscountAsync(List<Shop> shops, String product) {
+        return shops.stream()
+                .map(shop -> shop.getPriceWithDiscount(product))
+                .map(Quote::parse)
+                .map(Discount::applyDiscount)
+                .collect(toList());
+    }
+
+//endregion  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    /**
+     * Helper method to simulate a delay (price API request) and
+     * get a random double value
+     *
+     * @param product - the product name
+     * @return random product's price
+     */
+    private double calculatePrice(String product) {
+        randomDelay();
+        return Math.random() * product.charAt(0) + product.charAt(1);
+    }
+
+    enum DiscountCode {
+
+        NONE(0),
+        SILVER(5),
+        GOLD(10),
+        PLATINUM(15),
+        DIAMOND(20);
+
+        private int percentage;
+
+        DiscountCode(int percentage) {
+            this.percentage = percentage;
+        }
+    }
+
     public List<String> findPricesAsync(List<Shop> shops, String product, Executor executor) {
         List<CompletableFuture<String>> prices = shops.stream()
                 .map(s -> CompletableFuture.supplyAsync(() -> format("В магазине %s цена: %.2f", s.name, s.getPrice(product)),
@@ -148,6 +294,18 @@ public class FutureExamples {
                 .collect(toList());
 
         return prices.stream().map(CompletableFuture::join).collect(Collectors.toList());
+    }
+
+    public static class Discount {
+
+        public static String applyDiscount(Quote quote) {
+            return quote.shopName + " price is " + Discount.apply(quote.price, quote.discountCode);
+        }
+
+        private static double apply(double price, DiscountCode code) {
+            delay();
+            return price * (100 - code.percentage) / 100;
+        }
     }
 
     public List<String> findPrices(List<Shop> shops, String product) {
@@ -164,16 +322,26 @@ public class FutureExamples {
 
     }
 
-    /**
-     * Helper method to simulate a delay (price API request) and
-     * get a random double value
-     *
-     * @param product - the product name
-     * @return random product's price
-     */
-    private double calculatePrice(String product) {
-        delay();
-        return Math.random() * product.charAt(0) + product.charAt(1);
+    public static class Quote {
+
+        private final String shopName;
+        private final double price;
+        private final DiscountCode discountCode;
+
+        public Quote(String shopName, double price, DiscountCode discountCode) {
+            this.shopName = shopName;
+            this.price = price;
+            this.discountCode = discountCode;
+        }
+
+        public static Quote parse(String s) {
+            String[] split = s.split(":");
+            String shopName = split[0];
+            double price = Double.parseDouble(split[1]);
+            DiscountCode discountCode = DiscountCode.valueOf(split[2]);
+
+            return new Quote(shopName, price, discountCode);
+        }
     }
 
     public class Shop {
@@ -186,6 +354,15 @@ public class FutureExamples {
 
         public double getPrice(String product) {
             return calculatePrice(product);
+        }
+
+        public String getPriceWithDiscount(String product) {
+
+            Random random = new Random();
+            double price = calculatePrice(product);
+            DiscountCode code = DiscountCode.values()[random.nextInt(DiscountCode.values().length)];
+
+            return String.format("%s:%s:%s", name, Double.toString(price), code);
         }
 
         /*  Объявляем асинхронный метод, реализующий расчёт цены в отдельном
